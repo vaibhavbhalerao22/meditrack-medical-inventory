@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if item else 'Add' }} Medicine{% endblock %}
+{% block page_title %}{{ 'Edit Medicine' if item else 'Add Medicine' }}{% endblock %}
+
+{% block content %}
+<div class="panel-card">
+  <form method="POST">
+    <div class="form-grid">
+      <div class="field"><label>Medicine Name</label>
+        <input type="text" name="item_name" value="{{ item.item_name if item else '' }}" required></div>
+      <div class="field"><label>Generic Name / Salt Composition <span class="text-muted" style="font-weight:400;">(for substitute suggestions)</span></label>
+        <input type="text" name="generic_name" value="{{ item.generic_name if item else '' }}" placeholder="e.g. Paracetamol"></div>
+      <div class="field"><label>Strength</label>
+        <input type="text" name="strength" value="{{ item.strength if item else '' }}" placeholder="e.g. 500mg"></div>
+      <div class="field"><label>Category</label>
+        <input type="text" name="category" value="{{ item.category if item else '' }}" placeholder="Antibiotic, Analgesic..." required></div>
+      <div class="field"><label>Unit</label>
+        <select name="unit">
+          {% for u in ['strip','bottle','box','tablet','vial','tube'] %}
+          <option value="{{ u }}" {{ 'selected' if item and item.unit == u }}>{{ u|capitalize }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Supplier</label>
+        <select name="supplier_id">
+          <option value="">— None —</option>
+          {% for s in suppliers %}
+          <option value="{{ s.id }}" {{ 'selected' if item and item.supplier_id == s.id }}>{{ s.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>Current Stock</label>
+        <input type="number" name="current_stock" min="0" value="{{ item.current_stock if item else 0 }}" required></div>
+      <div class="field"><label>Reorder Level (triggers low-stock alert)</label>
+        <input type="number" name="reorder_level" min="0" value="{{ item.reorder_level if item else 10 }}" required></div>
+      <div class="field"><label>Safety Stock Buffer</label>
+        <input type="number" name="safety_stock" min="0" value="{{ item.safety_stock if item else 5 }}" required></div>
+      <div class="field"><label>Selling Price (per unit)</label>
+        <input type="number" step="0.01" name="unit_price" min="0" value="{{ item.unit_price if item else 0 }}" required></div>
+      <div class="field"><label>Cost Price (per unit)</label>
+        <input type="number" step="0.01" name="cost_price" min="0" value="{{ item.cost_price if item else 0 }}"></div>
+
+      {% if not item %}
+      <div class="field"><label>Initial Batch No. (optional)</label>
+        <input type="text" name="batch_no" placeholder="e.g. B24817"></div>
+      <div class="field"><label>Batch Expiry Date (optional)</label>
+        <input type="date" name="expiry_date"></div>
+      {% endif %}
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ 'Save Changes' if item else 'Add Medicine' }}</button>
+      <a href="{{ url_for('inventory.list_items') }}" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+
+{% if item %}
+<div class="section-title">
+  <div><span class="eyebrow">Batches</span><h2>Stock batches &amp; expiry</h2></div>
+</div>
+<div class="panel-card">
+  <form method="POST" action="{{ url_for('inventory.add_batch', item_id=item.id) }}" class="form-grid" style="margin-bottom:20px;">
+    <div class="field"><label>Batch No.</label><input type="text" name="batch_no" required></div>
+    <div class="field"><label>Quantity Received</label><input type="number" name="quantity" min="1" required></div>
+    <div class="field"><label>Expiry Date</label><input type="date" name="expiry_date" required></div>
+    <div class="field" style="align-self:end;"><button class="btn btn-accent btn-block">+ Add Batch</button></div>
+  </form>
+
+  {% if item.batches.all() %}
+  <table class="data-table">
+    <thead><tr><th>Batch No.</th><th>Quantity Left</th><th>Received</th><th>Expiry</th><th>Status</th></tr></thead>
+    <tbody>
+      {% for b in item.batches %}
+      <tr>
+        <td>{{ b.batch_no }}</td>
+        <td>{{ b.quantity }}</td>
+        <td class="text-muted">{{ b.received_date.strftime('%d %b %Y') }}</td>
+        <td>{{ b.expiry_date.strftime('%d %b %Y') }}</td>
+        <td>
+          {% if b.days_to_expiry < 0 %}<span class="badge badge-danger">Expired</span>
+          {% elif b.days_to_expiry <= 30 %}<span class="badge badge-warn">{{ b.days_to_expiry }} days left</span>
+          {% else %}<span class="badge badge-ok">OK</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No batches recorded yet.</div>
+  {% endif %}
+</div>
+
+{% if current_user.role == 'admin' %}
+<div class="section-title">
+  <div><span class="eyebrow">Danger Zone</span><h2>Remove this medicine</h2></div>
+</div>
+<div class="panel-card">
+  <p class="text-muted" style="margin-top:0;">This deletes the item and all its batches, sales history and forecasts. This cannot be undone.</p>
+  <form method="POST" action="{{ url_for('inventory.delete_item', item_id=item.id) }}"
+        onsubmit="return confirm('Permanently delete {{ item.item_name }}?');">
+    <button class="btn btn-danger">Delete Medicine</button>
+  </form>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

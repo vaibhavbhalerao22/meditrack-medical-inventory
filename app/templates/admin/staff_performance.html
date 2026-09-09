@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Staff Performance{% endblock %}
+{% block page_title %}Staff Performance{% endblock %}
+
+{% block content %}
+<div class="section-title" style="margin-top:0;">
+  <div><span class="eyebrow">Cashier performance</span><h2>Summary — last {{ days }} days</h2></div>
+  <form method="GET" style="display:flex; gap:8px;">
+    <select name="days" onchange="this.form.submit()">
+      {% for d in [7, 30, 90, 365] %}
+      <option value="{{ d }}" {{ 'selected' if days == d }}>Last {{ d }} days</option>
+      {% endfor %}
+    </select>
+  </form>
+</div>
+
+<div class="panel-card" style="padding:0;">
+  {% if summary %}
+  <table class="data-table">
+    <thead><tr><th>Cashier</th><th>Bills Generated</th><th>Total Revenue</th><th>Avg. Bill Value</th></tr></thead>
+    <tbody>
+      {% for s in summary %}
+      <tr>
+        <td><strong>{{ s.name }}</strong> <span class="text-muted">({{ s.username }})</span></td>
+        <td>{{ s.bills }}</td>
+        <td>{{ s.revenue|currency }}</td>
+        <td>{{ s.avg_bill|currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128101;</div>No billing activity in this period.</div>
+  {% endif %}
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Detail</span><h2>Per-day breakdown</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if daily_rows %}
+  <table class="data-table">
+    <thead><tr><th>Date</th><th>Cashier</th><th>Bills</th><th>Revenue</th><th>Avg. Bill</th></tr></thead>
+    <tbody>
+      {% for r in daily_rows %}
+      <tr>
+        <td class="text-muted">{{ r.date.strftime('%d %b %Y') }}</td>
+        <td>{{ r.name }}</td>
+        <td>{{ r.bills }}</td>
+        <td>{{ r.revenue|currency }}</td>
+        <td>{{ r.avg_bill|currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No billing activity in this period.</div>
+  {% endif %}
+</div>
+{% endblock %}

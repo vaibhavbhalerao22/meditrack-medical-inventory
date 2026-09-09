@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Returns{% endblock %}
+{% block page_title %}Returns &amp; Refunds{% endblock %}
+
+{% block content %}
+<div class="section-title" style="margin-top:0;">
+  <div><span class="eyebrow">Records</span><h2>Returns ({{ returns|length }})</h2></div>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:18px;">
+  <div class="card stat-card">
+    <div class="stat-label">Total Refunded</div>
+    <div class="stat-value">{{ total_refunded|currency }}</div>
+    <div class="stat-foot">Across {{ returns|length }} return(s)</div>
+  </div>
+</div>
+
+<div class="panel-card" style="padding:0;">
+  {% if returns %}
+  <table class="data-table">
+    <thead><tr><th>Date</th><th>Invoice No.</th><th>Item</th><th>Qty Returned</th><th>Reason</th><th>Refund</th><th>Processed By</th></tr></thead>
+    <tbody>
+      {% for r in returns %}
+      <tr>
+        <td class="text-muted">{{ r.processed_on.strftime('%d %b %Y, %I:%M %p') }}</td>
+        <td><a href="{{ url_for('cashier.view_bill', bill_id=r.bill_item.bill_id) }}" style="color:var(--teal-700); font-weight:600;">{{ r.bill_item.bill.invoice_no }}</a></td>
+        <td>{{ r.bill_item.item_name_snapshot }}</td>
+        <td>{{ r.quantity }}</td>
+        <td><span class="chip">{{ r.reason }}</span></td>
+        <td>{{ r.refund_amount|currency }}</td>
+        <td class="text-muted">{{ r.user.full_name }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128203;</div>No returns recorded yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Import Sales{% endblock %}
+{% block page_title %}Import Historical Sales{% endblock %}
+
+{% block content %}
+<div class="section-title">
+  <div><span class="eyebrow">Forecasting Data</span><h2>Upload a sales history CSV</h2></div>
+</div>
+
+<div class="panel-card">
+  <p class="text-muted mt-0">
+    Upload your <code>dailysales.csv</code> (or similar) file to build up the historical record the
+    forecasting engine trains on. The file needs columns for the medicine name, the date, and the
+    quantity sold — column names like <code>item_name</code>/<code>date</code>/<code>quantity_sold</code>
+    or close variants are auto-detected. Medicines must already exist in your inventory (add them first
+    if the import reports unmatched names).
+  </p>
+  <form method="POST" enctype="multipart/form-data">
+    <div class="field" style="max-width:420px;">
+      <label>CSV File</label>
+      <input type="file" name="csv_file" accept=".csv" required>
+    </div>
+    <div class="form-actions"><button class="btn btn-accent">Upload &amp; Import</button></div>
+  </form>
+</div>
+
+<div class="grid grid-3" style="margin-top:22px;">
+  <div class="card stat-card">
+    <div class="stat-label">Total Sales Records</div>
+    <div class="stat-value">{{ total_records }}</div>
+    <div class="stat-foot">Across all items (POS sales + imports)</div>
+  </div>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Recent</span><h2>Last imported rows</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if recent %}
+  <table class="data-table">
+    <thead><tr><th>Item</th><th>Date</th><th>Quantity</th></tr></thead>
+    <tbody>
+      {% for r in recent %}
+      <tr><td>{{ r.item.item_name }}</td><td>{{ r.sale_date.strftime('%d %b %Y') }}</td><td>{{ r.quantity_sold }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No CSV imports yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

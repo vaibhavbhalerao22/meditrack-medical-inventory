@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign in · MediTrack</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="auth-shell">
+  <div class="auth-visual">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div class="brand-name">MediTrack</div>
+    </div>
+
+    <div>
+      <h1>Stock that never runs out&nbsp;&mdash;&nbsp;or over.</h1>
+      <p class="quote">
+        Hybrid ARIMA + LSTM demand forecasting, batch &amp; expiry tracking,
+        and one-tap billing, built for the daily rhythm of a real pharmacy counter.
+      </p>
+    </div>
+
+    <div class="ekg">
+      <svg viewBox="0 0 600 60" width="100%" height="60" preserveAspectRatio="none">
+        <polyline points="0,30 140,30 160,30 172,4 184,56 196,30 210,30 380,30 400,30 412,4 424,56 436,30 450,30 600,30"
+          fill="none" stroke="#2BB6A3" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="auth-form-wrap">
+    <div class="auth-card">
+      <div class="eyebrow">Staff sign in</div>
+      <h2>Welcome back</h2>
+      <p class="sub">Enter your credentials to access {{ shop_name }}'s dashboard.</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+          <div class="flash flash-{{ category if category != 'message' else 'info' }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="POST">
+        <div class="field">
+          <label for="username">Username</label>
+          <input type="text" id="username" name="username" autofocus required>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" name="password" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-block">Sign in</button>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

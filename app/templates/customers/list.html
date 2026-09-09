@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Customers{% endblock %}
+{% block page_title %}Customers{% endblock %}
+
+{% block content %}
+<div class="section-title" style="margin-top:0;">
+  <div><span class="eyebrow">Accounts</span><h2>All customers ({{ customers|length }})</h2></div>
+  <a href="{{ url_for('customers.new_customer') }}" class="btn btn-accent">+ Add Customer</a>
+</div>
+
+<form method="GET" class="search-box" style="max-width:360px;">
+  <span class="ic">&#128269;</span>
+  <input type="text" name="q" value="{{ q }}" placeholder="Search by name or phone...">
+</form>
+
+<div class="panel-card" style="padding:0; margin-top:14px;">
+  {% if customers %}
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Phone</th><th>Address</th><th>Prescriptions</th><th>Added</th></tr></thead>
+    <tbody>
+      {% for c in customers %}
+      <tr>
+        <td><a href="{{ url_for('customers.profile', customer_id=c.id) }}" style="color:var(--teal-700); font-weight:600;">{{ c.name }}</a></td>
+        <td>{{ c.phone }}</td>
+        <td class="text-muted">{{ c.address or '—' }}</td>
+        <td>{{ c.prescriptions.count() }}</td>
+        <td class="text-muted">{{ c.created_on.strftime('%d %b %Y') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128100;</div>No customers yet. <a href="{{ url_for('customers.new_customer') }}" style="color:var(--teal-700); font-weight:600;">Add your first one</a>.</div>
+  {% endif %}
+</div>
+{% endblock %}

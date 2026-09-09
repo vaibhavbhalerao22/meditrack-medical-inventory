@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Users{% endblock %}
+{% block page_title %}Staff Accounts{% endblock %}
+
+{% block content %}
+<div class="section-title">
+  <div><span class="eyebrow">Access Control</span><h2>Add a staff account</h2></div>
+</div>
+<div class="panel-card">
+  <form method="POST" action="{{ url_for('admin.create_user') }}">
+    <div class="form-grid">
+      <div class="field"><label>Full Name</label><input type="text" name="full_name" required></div>
+      <div class="field"><label>Username</label><input type="text" name="username" required></div>
+      <div class="field"><label>Password</label><input type="password" name="password" required minlength="6"></div>
+      <div class="field">
+        <label>Role</label>
+        <select name="role" required>
+          <option value="{{ roles.INVENTORY_MANAGER }}">Inventory Manager</option>
+          <option value="{{ roles.CASHIER }}">Cashier</option>
+          <option value="{{ roles.ADMIN }}">Administrator</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Create Account</button>
+    </div>
+  </form>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Directory</span><h2>All staff ({{ users|length }})</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Username</th><th>Role</th><th>Status</th><th>Last Login</th><th></th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td>{{ u.full_name }}</td>
+        <td>{{ u.username }}</td>
+        <td><span class="badge badge-muted">{{ u.role_label }}</span></td>
+        <td>
+          {% if u.is_active_user %}<span class="badge badge-ok">Active</span>
+          {% else %}<span class="badge badge-danger">Deactivated</span>{% endif %}
+        </td>
+        <td class="text-muted">{{ u.last_login.strftime('%d %b %Y, %I:%M %p') if u.last_login else '—' }}</td>
+        <td>
+          {% if u.id != current_user.id %}
+          <form method="POST" action="{{ url_for('admin.toggle_user', user_id=u.id) }}" style="display:inline;">
+            <button class="btn btn-outline btn-sm">{{ 'Deactivate' if u.is_active_user else 'Activate' }}</button>
+          </form>
+          <form method="POST" action="{{ url_for('admin.delete_user', user_id=u.id) }}" style="display:inline;"
+                onsubmit="return confirm('Delete this user permanently?');">
+            <button class="btn btn-danger btn-sm">Delete</button>
+          </form>
+          {% else %}
+          <span class="text-muted" style="font-size:12px;">This is you</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Forecast Accuracy{% endblock %}
+{% block page_title %}Forecast Accuracy{% endblock %}
+
+{% block content %}
+<div class="section-title">
+  <div><span class="eyebrow">Model Validation</span><h2>How good are the forecasts, really?</h2></div>
+</div>
+<p class="text-muted" style="font-size:12.5px; margin-top:-8px; margin-bottom:18px;">
+  Each time you run a forecast for a medicine, the hybrid model is validated on a held-out slice of its
+  own recent sales history (data it never trained on) before producing the future forecast. This page
+  compares that held-out prediction against what actually happened, per medicine.
+</p>
+
+{% if overall %}
+<div class="grid grid-4">
+  <div class="card stat-card">
+    <div class="stat-label">Items Validated</div>
+    <div class="stat-value">{{ overall.items_validated }}</div>
+    <div class="stat-foot">of {{ scored_items|length + unscored_items|length }} total</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Avg. MAPE</div>
+    <div class="stat-value">{{ overall.avg_mape if overall.avg_mape is not none else '—' }}{{ '%' if overall.avg_mape is not none }}</div>
+    <div class="stat-foot">Mean absolute % error</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Avg. MAE</div>
+    <div class="stat-value">{{ overall.avg_mae }}</div>
+    <div class="stat-foot">units/day</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Avg. RMSE</div>
+    <div class="stat-value">{{ overall.avg_rmse }}</div>
+    <div class="stat-foot">units/day</div>
+  </div>
+</div>
+{% endif %}
+
+<div class="section-title">
+  <div><span class="eyebrow">Detail</span><h2>Actual vs. Predicted</h2></div>
+  {% if scored_items %}
+  <select id="itemSelect" onchange="loadChart(this.value)" style="min-width:220px;">
+    {% for row in scored_items %}
+    <option value="{{ row.item.id }}" {{ 'selected' if row.item.id == selected_id }}>{{ row.item.item_name }}</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+</div>
+
+{% if scored_items %}
+<div class="panel-card">
+  <canvas id="accuracyChart" height="85"></canvas>
+</div>
+{% else %}
+<div class="panel-card">
+  <div class="empty-state"><div class="ic">&#128202;</div>No validated forecasts yet. Run a forecast for a medicine on the
+    <a href="{{ url_for('inventory.forecast_home') }}" style="color:var(--teal-700); font-weight:600;">Demand Forecast</a> page — it validates automatically as part of that.
+  </div>
+</div>
+{% endif %}
+
+<div class="section-title">
+  <div><span class="eyebrow">All Items</span><h2>Accuracy by medicine</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if scored_items %}
+  <table class="data-table">
+    <thead><tr><th>Medicine</th><th>Validated Days</th><th>MAE</th><th>RMSE</th><th>MAPE</th><th>Model</th><th>Last Run</th></tr></thead>
+    <tbody>
+      {% for row in scored_items %}
+      <tr>
+        <td><strong>{{ row.item.item_name }}</strong></td>
+        <td>{{ row.n }}</td>
+        <td>{{ row.mae }}</td>
+        <td>{{ row.rmse }}</td>
+        <td>
+          {% if row.mape is none %}—
+          {% elif row.mape <= 15 %}<span class="badge badge-ok">{{ row.mape }}%</span>
+          {% elif row.mape <= 35 %}<span class="badge badge-warn">{{ row.mape }}%</span>
+          {% else %}<span class="badge badge-danger">{{ row.mape }}%</span>{% endif %}
+        </td>
+        <td class="text-muted">{{ row.model_used }}</td>
+        <td class="text-muted">{{ row.generated_on.strftime('%d %b %Y') }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128202;</div>Nothing to show yet.</div>
+  {% endif %}
+</div>
+
+{% if unscored_items %}
+<div class="section-title">
+  <div><span class="eyebrow">Pending</span><h2>Not yet forecasted ({{ unscored_items|length }})</h2></div>
+</div>
+<div class="panel-card">
+  <p class="text-muted" style="font-size:13px; margin:0 0 10px;">
+    These medicines haven't had a forecast run yet, so there's no accuracy data for them.
+  </p>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    {% for item in unscored_items %}
+    <span class="chip">{{ item.item_name }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script>
+let accuracyChart = null;
+
+async function loadChart(itemId) {
+  if (!itemId) return;
+  const canvas = document.getElementById('accuracyChart');
+  if (!canvas) return;
+
+  let data;
+  try {
+    const res = await fetch(`/inventory/forecast/accuracy/${itemId}/data`);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (err) {
+    canvas.closest('.panel-card').innerHTML =
+      '<div class="empty-state" style="color:#B23B3B;">&#9888; Could not load accuracy data (' + err.message + ').</div>';
+    return;
+  }
+
+  if (accuracyChart) accuracyChart.destroy();
+  accuracyChart = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [
+        {
+          label: 'Actual',
+          data: data.actual,
+          borderColor: '#1F8A7C',
+          backgroundColor: 'rgba(43,182,163,0.10)',
+          fill: false, tension: 0.3, pointRadius: 3, borderWidth: 2,
+        },
+        {
+          label: 'Predicted',
+          data: data.predicted,
+          borderColor: '#E8912D',
+          backgroundColor: 'rgba(232,145,45,0.10)',
+          borderDash: [6, 4],
+          fill: false, tension: 0.3, pointRadius: 3, borderWidth: 2,
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true, position: 'top' } },
+      scales: { y: { beginAtZero: true, grid: { color: '#EEF3F1' } }, x: { grid: { display: false } } }
+    }
+  });
+}
+
+{% if selected_id %}
+loadChart({{ selected_id }});
+{% endif %}
+</script>
+{% endblock %}

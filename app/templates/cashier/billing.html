@@ -1,0 +1,270 @@
+{% extends "base.html" %}
+{% block title %}New Bill{% endblock %}
+{% block page_title %}New Bill{% endblock %}
+
+{% block content %}
+<div class="pos-layout">
+  <div>
+    <div class="section-title" style="margin-top:0;">
+      <div><span class="eyebrow">Point of Sale</span><h2>Find medicines</h2></div>
+      <span class="text-muted" style="font-size:11.5px;">
+        <kbd style="background:var(--bg-canvas); border:1px solid var(--line); border-radius:4px; padding:1px 6px;">F2</kbd> search ·
+        <kbd style="background:var(--bg-canvas); border:1px solid var(--line); border-radius:4px; padding:1px 6px;">Enter</kbd> add first result ·
+        <kbd style="background:var(--bg-canvas); border:1px solid var(--line); border-radius:4px; padding:1px 6px;">Ctrl+Enter</kbd> generate bill
+      </span>
+    </div>
+    <div class="search-box">
+      <span class="ic">&#128269;</span>
+      <input type="text" id="searchInput" placeholder="Search by medicine name... (F2)" autofocus>
+    </div>
+    <div id="searchResults"></div>
+    <div id="substitutePanel"></div>
+  </div>
+
+  <div>
+    <div class="panel-card">
+      <div class="section-title" style="margin-top:0;">
+        <div><span class="eyebrow">Current Bill</span><h2>Cart</h2></div>
+      </div>
+
+      <div id="cartLines">
+        <div class="empty-state" id="emptyCart"><div class="ic">&#128722;</div>No items added yet.</div>
+      </div>
+
+      <div style="margin-top:14px;">
+        <div class="cart-summary-row"><span>Subtotal</span><span id="subtotalDisplay">₹0.00</span></div>
+        <div class="field" style="margin-top:10px;">
+          <label>Discount (₹)</label>
+          <input type="number" id="discountInput" value="0" min="0" step="0.01">
+        </div>
+        <div class="field">
+          <label>Tax (₹)</label>
+          <input type="number" id="taxInput" value="0" min="0" step="0.01">
+        </div>
+        <div class="cart-summary-row total"><span>Total</span><span id="totalDisplay">₹0.00</span></div>
+      </div>
+
+      <div class="section-title" style="margin-top:20px;">
+        <div><span class="eyebrow">Customer</span><h2 style="font-size:15px;">Details (optional)</h2></div>
+      </div>
+      <div class="field"><input type="text" id="customerName" placeholder="Customer name"></div>
+      <div class="field"><input type="text" id="customerPhone" placeholder="Phone number"></div>
+      <div class="field">
+        <label>Payment Mode</label>
+        <select id="paymentMode">
+          <option>Cash</option>
+          <option>UPI</option>
+          <option>Card</option>
+        </select>
+      </div>
+
+      <button class="btn btn-primary btn-block" id="checkoutBtn" disabled>Generate Bill (Ctrl+Enter)</button>
+      <div id="errorBox" class="flash flash-error" style="display:none; margin-top:12px;"></div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+let cart = {}; // id -> {id, name, price, qty, stock, unit}
+let lastResults = [];
+
+const searchInput = document.getElementById('searchInput');
+const searchResults = document.getElementById('searchResults');
+const substitutePanel = document.getElementById('substitutePanel');
+const cartLines = document.getElementById('cartLines');
+const emptyCart = document.getElementById('emptyCart');
+const checkoutBtn = document.getElementById('checkoutBtn');
+
+let searchTimer;
+searchInput.addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(runSearch, 220);
+});
+
+async function runSearch() {
+  const q = searchInput.value.trim();
+  const res = await fetch(`{{ url_for('cashier.search_items') }}?q=${encodeURIComponent(q)}`);
+  lastResults = await res.json();
+  substitutePanel.innerHTML = '';
+  searchResults.innerHTML = lastResults.map(i => {
+    if (i.stock <= 0) {
+      return `
+      <div class="item-result" style="opacity:0.7; cursor:default;">
+        <div>
+          <div class="name">${i.name}</div>
+          <div class="meta"><span style="color:var(--red-500); font-weight:600;">Out of stock</span></div>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" onclick='findSubstitutes(${i.id}, ${JSON.stringify(i.name)})'>Find substitute</button>
+      </div>`;
+    }
+    return `
+      <div class="item-result" onclick='addToCart(${JSON.stringify(i).replace(/'/g, "&apos;")})'>
+        <div>
+          <div class="name">${i.name}</div>
+          <div class="meta">${i.category} · ${i.stock} ${i.unit}(s) in stock</div>
+        </div>
+        <div class="price">₹${i.price.toFixed(2)}</div>
+      </div>`;
+  }).join('') || '<div class="empty-state">No matching medicines found.</div>';
+}
+runSearch();
+
+async function findSubstitutes(itemId, itemName) {
+  const res = await fetch(`/cashier/api/substitutes/${itemId}`);
+  const data = await res.json();
+  if (data.message) {
+    substitutePanel.innerHTML = `<div class="flash flash-info" style="margin-top:10px;">${data.message}</div>`;
+    return;
+  }
+  if (data.substitutes.length === 0) {
+    substitutePanel.innerHTML = `<div class="flash flash-error" style="margin-top:10px;">No in-stock substitute found for ${itemName}.</div>`;
+    return;
+  }
+  substitutePanel.innerHTML = `
+    <div class="flash flash-info" style="margin-top:10px; display:block;">
+      <strong>Substitutes for ${itemName}</strong> (same generic/salt):
+    </div>` +
+    data.substitutes.map(s => `
+      <div class="item-result" onclick='addToCart(${JSON.stringify({id: s.id, name: s.name, price: s.price, stock: s.stock, unit: s.unit}).replace(/'/g, "&apos;")})'>
+        <div>
+          <div class="name">${s.name} ${s.strength ? '· ' + s.strength : ''}</div>
+          <div class="meta">${s.stock} ${s.unit}(s) in stock</div>
+        </div>
+        <div class="price">₹${s.price.toFixed(2)}</div>
+      </div>
+    `).join('');
+}
+
+function addToCart(item) {
+  if (!cart[item.id]) {
+    cart[item.id] = { id: item.id, name: item.name, price: item.price, qty: 1, stock: item.stock, unit: item.unit };
+  } else if (cart[item.id].qty < item.stock) {
+    cart[item.id].qty += 1;
+  }
+  renderCart();
+}
+
+function changeQty(id, delta) {
+  const line = cart[id];
+  if (!line) return;
+  line.qty += delta;
+  if (line.qty <= 0) delete cart[id];
+  else if (line.qty > line.stock) line.qty = line.stock;
+  renderCart();
+}
+
+function renderCart() {
+  const ids = Object.keys(cart);
+  if (ids.length === 0) {
+    cartLines.innerHTML = '<div class="empty-state" id="emptyCart"><div class="ic">&#128722;</div>No items added yet.</div>';
+    checkoutBtn.disabled = true;
+  } else {
+    cartLines.innerHTML = ids.map(id => {
+      const l = cart[id];
+      return `
+      <div class="cart-line">
+        <div>
+          <div style="font-weight:600; font-size:13.6px;">${l.name}</div>
+          <div class="text-muted" style="font-size:11.5px;">₹${l.price.toFixed(2)} × ${l.qty}</div>
+        </div>
+        <div class="qty-stepper">
+          <button type="button" onclick="changeQty(${id}, -1)">−</button>
+          <span>${l.qty}</span>
+          <button type="button" onclick="changeQty(${id}, 1)">+</button>
+        </div>
+      </div>`;
+    }).join('');
+    checkoutBtn.disabled = false;
+  }
+  updateTotals();
+}
+
+function updateTotals() {
+  const subtotal = Object.values(cart).reduce((s, l) => s + l.price * l.qty, 0);
+  const discount = parseFloat(document.getElementById('discountInput').value || 0);
+  const tax = parseFloat(document.getElementById('taxInput').value || 0);
+  const total = Math.max(0, subtotal - discount + tax);
+  document.getElementById('subtotalDisplay').textContent = `₹${subtotal.toFixed(2)}`;
+  document.getElementById('totalDisplay').textContent = `₹${total.toFixed(2)}`;
+}
+
+document.getElementById('discountInput').addEventListener('input', updateTotals);
+document.getElementById('taxInput').addEventListener('input', updateTotals);
+
+async function submitBill() {
+  if (checkoutBtn.disabled) return;
+  const errorBox = document.getElementById('errorBox');
+  errorBox.style.display = 'none';
+  checkoutBtn.disabled = true;
+  checkoutBtn.textContent = 'Processing...';
+
+  const payload = {
+    cart: Object.values(cart).map(l => ({ id: l.id, qty: l.qty })),
+    discount: parseFloat(document.getElementById('discountInput').value || 0),
+    tax: parseFloat(document.getElementById('taxInput').value || 0),
+    customer_name: document.getElementById('customerName').value,
+    customer_phone: document.getElementById('customerPhone').value,
+    payment_mode: document.getElementById('paymentMode').value,
+  };
+
+  try {
+    const res = await fetch("{{ url_for('cashier.create_bill') }}", {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+    window.location.href = data.redirect;
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.style.display = 'block';
+    checkoutBtn.disabled = false;
+    checkoutBtn.textContent = 'Generate Bill (Ctrl+Enter)';
+  }
+}
+
+checkoutBtn.addEventListener('click', submitBill);
+
+// ---- Keyboard shortcuts ----
+document.addEventListener('keydown', (e) => {
+  // F2: focus the search box from anywhere on the page
+  if (e.key === 'F2') {
+    e.preventDefault();
+    searchInput.focus();
+    searchInput.select();
+    return;
+  }
+  // Ctrl+Enter (or Cmd+Enter on Mac): generate the bill from anywhere
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    e.preventDefault();
+    submitBill();
+    return;
+  }
+  // Enter while focused in the search box: add the first matching result
+  if (e.key === 'Enter' && document.activeElement === searchInput) {
+    e.preventDefault();
+    if (lastResults.length > 0) {
+      const first = lastResults[0];
+      if (first.stock > 0) {
+        addToCart(first);
+        searchInput.value = '';
+        runSearch();
+      } else {
+        findSubstitutes(first.id, first.name);
+      }
+    }
+    return;
+  }
+  // Escape while in the search box: clear it
+  if (e.key === 'Escape' && document.activeElement === searchInput) {
+    searchInput.value = '';
+    substitutePanel.innerHTML = '';
+    runSearch();
+  }
+});
+</script>
+{% endblock %}
+

@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Reorder Suggestions{% endblock %}
+{% block page_title %}Reorder Suggestions{% endblock %}
+
+{% block content %}
+<div class="section-title">
+  <div><span class="eyebrow">Auto-generated</span><h2>Restocking plan across all medicines</h2></div>
+</div>
+<p class="text-muted" style="font-size:12.5px; margin-top:-8px; margin-bottom:18px;">
+  Combines each medicine's latest demand forecast with its current stock, reorder point, and supplier
+  lead time (EOQ / reorder-point formulas) to flag what needs reordering and roughly when.
+</p>
+
+<div class="grid grid-3">
+  <div class="card stat-card {{ 'danger' if urgent else '' }}">
+    <div class="stat-label">Reorder Now</div>
+    <div class="stat-value">{{ urgent|length }}</div>
+    <div class="stat-foot">Below reorder point</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Stocked OK</div>
+    <div class="stat-value">{{ ok|length }}</div>
+    <div class="stat-foot">Above reorder point</div>
+  </div>
+  <div class="card stat-card {{ 'warn' if unforecasted else '' }}">
+    <div class="stat-label">Needs a Forecast</div>
+    <div class="stat-value">{{ unforecasted|length }}</div>
+    <div class="stat-foot">No forecast run yet</div>
+  </div>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Action Needed</span><h2>Reorder now ({{ urgent|length }})</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if urgent %}
+  <table class="data-table">
+    <thead><tr><th>Medicine</th><th>Current Stock</th><th>Reorder Point</th><th>Suggested Order Qty</th><th>Days of Stock Left</th><th>Reorder By</th><th>Supplier</th><th></th></tr></thead>
+    <tbody>
+      {% for row in urgent %}
+      <tr>
+        <td><strong>{{ row.item.item_name }}</strong></td>
+        <td>{{ row.item.current_stock }} {{ row.item.unit }}s</td>
+        <td>{{ row.reorder_point }} {{ row.item.unit }}s</td>
+        <td><span class="badge badge-danger">{{ row.eoq }} {{ row.item.unit }}s</span></td>
+        <td>{{ row.days_of_stock_left if row.days_of_stock_left is not none else '∞' }}</td>
+        <td>{{ row.reorder_by.strftime('%d %b %Y') if row.reorder_by else '—' }}</td>
+        <td class="text-muted">{{ row.item.supplier.name if row.item.supplier else '—' }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('inventory.create_purchase_order') }}">
+            <input type="hidden" name="item_id" value="{{ row.item.id }}">
+            <input type="hidden" name="quantity" value="{{ row.eoq }}">
+            <button class="btn btn-outline btn-sm">Create PO</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#9989;</div>Nothing urgent — all forecasted items are above their reorder point.</div>
+  {% endif %}
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Fine for now</span><h2>Stocked OK ({{ ok|length }})</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if ok %}
+  <table class="data-table">
+    <thead><tr><th>Medicine</th><th>Current Stock</th><th>Reorder Point</th><th>Days of Stock Left</th><th>When to Reorder</th></tr></thead>
+    <tbody>
+      {% for row in ok %}
+      <tr>
+        <td>{{ row.item.item_name }}</td>
+        <td>{{ row.item.current_stock }} {{ row.item.unit }}s</td>
+        <td>{{ row.reorder_point }} {{ row.item.unit }}s</td>
+        <td>{{ row.days_of_stock_left if row.days_of_stock_left is not none else '∞' }}</td>
+        <td class="text-muted">{{ row.reorder_by.strftime('%d %b %Y') if row.reorder_by else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128202;</div>Nothing here yet.</div>
+  {% endif %}
+</div>
+
+{% if unforecasted %}
+<div class="section-title">
+  <div><span class="eyebrow">Pending</span><h2>Needs a forecast first ({{ unforecasted|length }})</h2></div>
+</div>
+<div class="panel-card">
+  <p class="text-muted" style="font-size:13px; margin:0 0 10px;">
+    These medicines have no forecast on file, so no reorder suggestion can be calculated for them yet.
+  </p>
+  <div style="display:flex; flex-wrap:wrap; gap:8px;">
+    {% for item in unforecasted %}
+    <span class="chip">{{ item.item_name }}</span>
+    {% endfor %}
+  </div>
+  <a href="{{ url_for('inventory.forecast_home') }}" class="btn btn-accent btn-sm" style="margin-top:12px;">Run a forecast &rarr;</a>
+</div>
+{% endif %}
+{% endblock %}

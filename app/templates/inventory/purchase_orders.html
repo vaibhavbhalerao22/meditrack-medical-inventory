@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}Purchase Orders{% endblock %}
+{% block page_title %}Purchase Orders{% endblock %}
+
+{% block content %}
+<div class="section-title" style="margin-top:0;">
+  <div><span class="eyebrow">Restocking</span><h2>Pending ({{ pending|length }})</h2></div>
+</div>
+
+<div class="panel-card" style="padding:0; margin-bottom:22px;">
+  {% if pending %}
+  <table class="data-table">
+    <thead><tr><th>Medicine</th><th>Qty</th><th>Supplier</th><th>Created</th><th>Via</th><th>Notes</th><th>Receive stock</th><th></th></tr></thead>
+    <tbody>
+      {% for po in pending %}
+      <tr>
+        <td><strong>{{ po.item.item_name }}</strong></td>
+        <td>{{ po.quantity }} {{ po.item.unit }}s</td>
+        <td class="text-muted">{{ po.supplier.name if po.supplier else '—' }}</td>
+        <td class="text-muted">{{ po.created_on.strftime('%d %b %Y') }}</td>
+        <td>{% if po.created_via == 'ai_assistant' %}<span class="chip">&#129302; AI Assistant</span>{% else %}<span class="text-muted">Manual</span>{% endif %}</td>
+        <td class="text-muted">{{ po.notes or '—' }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('inventory.receive_purchase_order', po_id=po.id) }}"
+                style="display:flex; gap:6px; align-items:center;"
+                onsubmit="return confirm('Mark received? This adds {{ po.quantity }} {{ po.item.unit }}s to stock.');">
+            <input type="text" name="batch_no" placeholder="Batch no." required
+                   style="width:90px; padding:5px 6px; border-radius:6px; border:1px solid var(--line); font-size:11.5px;">
+            <input type="date" name="expiry_date" required min="{{ today }}"
+                   style="padding:5px 6px; border-radius:6px; border:1px solid var(--line); font-size:11.5px;">
+            <button class="btn btn-accent btn-sm">Receive</button>
+          </form>
+        </td>
+        <td>
+          <form method="POST" action="{{ url_for('inventory.cancel_purchase_order', po_id=po.id) }}"
+                onsubmit="return confirm('Cancel this purchase order?');">
+            <button class="btn btn-outline btn-sm">Cancel</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128230;</div>No pending purchase orders. Create one below, or from the
+    <a href="{{ url_for('inventory.reorder_suggestions') }}" style="color:var(--teal-700); font-weight:600;">Reorder Suggestions</a> page.
+  </div>
+  {% endif %}
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">New</span><h2>Create a purchase order</h2></div>
+</div>
+<div class="panel-card" style="margin-bottom:22px;">
+  <form method="POST" action="{{ url_for('inventory.create_purchase_order') }}" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label style="font-size:11.5px; color:var(--slate-600); display:block; margin-bottom:4px;">Medicine</label>
+      <select name="item_id" required style="min-width:220px; padding:9px 10px; border-radius:8px; border:1px solid var(--line);">
+        {% for item in items %}
+        <option value="{{ item.id }}">{{ item.item_name }} ({{ item.current_stock }} {{ item.unit }}s in stock)</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label style="font-size:11.5px; color:var(--slate-600); display:block; margin-bottom:4px;">Quantity</label>
+      <input type="number" name="quantity" min="1" required style="width:110px; padding:9px 10px; border-radius:8px; border:1px solid var(--line);">
+    </div>
+    <div style="flex:1; min-width:180px;">
+      <label style="font-size:11.5px; color:var(--slate-600); display:block; margin-bottom:4px;">Notes (optional)</label>
+      <input type="text" name="notes" style="width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--line);">
+    </div>
+    <button class="btn btn-accent">Create Purchase Order</button>
+  </form>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">History</span><h2>Received / Cancelled</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if past %}
+  <table class="data-table">
+    <thead><tr><th>Medicine</th><th>Qty</th><th>Status</th><th>Created</th><th>Resolved</th></tr></thead>
+    <tbody>
+      {% for po in past %}
+      <tr>
+        <td>{{ po.item.item_name }}</td>
+        <td>{{ po.quantity }} {{ po.item.unit }}s</td>
+        <td>
+          {% if po.status == 'Received' %}<span class="badge badge-ok">Received</span>
+          {% else %}<span class="badge badge-muted">Cancelled</span>{% endif %}
+        </td>
+        <td class="text-muted">{{ po.created_on.strftime('%d %b %Y') }}</td>
+        <td class="text-muted">{{ po.received_on.strftime('%d %b %Y') if po.received_on else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128203;</div>Nothing here yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

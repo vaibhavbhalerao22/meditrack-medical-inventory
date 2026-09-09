@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Wastage Report{% endblock %}
+{% block page_title %}Wastage Report{% endblock %}
+
+{% block content %}
+<div class="section-title" style="margin-top:0;">
+  <div><span class="eyebrow">Loss tracking</span><h2>Write-offs — last {{ days }} days</h2></div>
+  <form method="GET" style="display:flex; gap:8px;">
+    <select name="days" onchange="this.form.submit()">
+      {% for d in [30, 90, 180, 365] %}
+      <option value="{{ d }}" {{ 'selected' if days == d }}>Last {{ d }} days</option>
+      {% endfor %}
+    </select>
+    <a href="{{ url_for('inventory.export_wastage_xlsx', days=days) }}" class="btn btn-outline">Export to Excel</a>
+  </form>
+</div>
+
+<div class="grid grid-3">
+  <div class="card stat-card danger">
+    <div class="stat-label">Total Loss Value</div>
+    <div class="stat-value">{{ total_loss|currency }}</div>
+    <div class="stat-foot">At cost price, not selling price</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Units Written Off</div>
+    <div class="stat-value">{{ total_units }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Write-off Events</div>
+    <div class="stat-value">{{ write_offs|length }}</div>
+  </div>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Breakdown</span><h2>Loss by medicine</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if by_item %}
+  <table class="data-table">
+    <thead><tr><th>Medicine</th><th>Units Written Off</th><th>Loss Value</th></tr></thead>
+    <tbody>
+      {% for name, data in by_item %}
+      <tr><td>{{ name }}</td><td>{{ data.qty }}</td><td>{{ data.loss|currency }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No write-offs in this period.</div>
+  {% endif %}
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Log</span><h2>All write-off events</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if write_offs %}
+  <table class="data-table">
+    <thead><tr><th>Date</th><th>Medicine</th><th>Batch</th><th>Qty</th><th>Reason</th><th>Loss</th><th>By</th></tr></thead>
+    <tbody>
+      {% for w in write_offs %}
+      <tr>
+        <td class="text-muted">{{ w.written_off_on.strftime('%d %b %Y') }}</td>
+        <td>{{ w.item.item_name }}</td>
+        <td class="text-muted">{{ w.batch.batch_no if w.batch else '—' }}</td>
+        <td>{{ w.quantity }}</td>
+        <td><span class="badge badge-warn">{{ w.reason }}</span></td>
+        <td>{{ w.total_loss|currency }}</td>
+        <td class="text-muted">{{ w.user.full_name }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128230;</div>Nothing written off in this period.</div>
+  {% endif %}
+</div>
+{% endblock %}

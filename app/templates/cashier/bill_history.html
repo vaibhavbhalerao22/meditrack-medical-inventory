@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Bill History{% endblock %}
+{% block page_title %}Bill History{% endblock %}
+
+{% block content %}
+<div class="section-title" style="margin-top:0;">
+  <div><span class="eyebrow">Records</span><h2>Bills ({{ bills|length }})</h2></div>
+  <div style="display:flex; gap:10px;">
+    <a href="{{ url_for('cashier.export_bills_xlsx', date=date_filter) }}" class="btn btn-outline">Export to Excel</a>
+    <form method="GET" style="display:flex; gap:10px;">
+      <input type="date" name="date" value="{{ date_filter }}" onchange="this.form.submit()">
+      {% if date_filter %}<a href="{{ url_for('cashier.bill_history') }}" class="btn btn-outline btn-sm">Clear</a>{% endif %}
+    </form>
+  </div>
+</div>
+
+<div class="panel-card" style="padding:0;">
+  {% if bills %}
+  <table class="data-table">
+    <thead><tr><th>Invoice No.</th><th>Date</th><th>Customer</th><th>Cashier</th><th>Payment</th><th>Total</th><th></th></tr></thead>
+    <tbody>
+      {% for b in bills %}
+      <tr>
+        <td><strong>{{ b.invoice_no }}</strong></td>
+        <td class="text-muted">{{ b.created_on.strftime('%d %b %Y, %I:%M %p') }}</td>
+        <td>{{ b.customer_name }}</td>
+        <td class="text-muted">{{ b.cashier.full_name }}</td>
+        <td><span class="chip">{{ b.payment_mode }}</span></td>
+        <td>{{ b.total|currency }}</td>
+        <td>
+          <a href="{{ url_for('cashier.view_bill', bill_id=b.id) }}" class="btn btn-outline btn-sm">View</a>
+          <a href="{{ url_for('cashier.download_invoice', bill_id=b.id) }}" class="btn btn-outline btn-sm">PDF</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128203;</div>No bills found.</div>
+  {% endif %}
+</div>
+{% endblock %}

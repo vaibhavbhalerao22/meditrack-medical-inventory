@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Demand Forecast{% endblock %}
+{% block page_title %}Demand Forecasting{% endblock %}
+
+{% block content %}
+<div class="section-title">
+  <div><span class="eyebrow">Hybrid ARIMA + LSTM</span><h2>Generate a forecast</h2></div>
+</div>
+
+<div class="panel-card">
+  <form method="POST" id="forecastForm" class="form-grid" style="align-items:end;"
+        action="">
+    <div class="field">
+      <label>Medicine</label>
+      <select name="item_select" id="itemSelect" onchange="updateAction()">
+        <option value="">— Select a medicine —</option>
+        {% for i in items %}
+        <option value="{{ i.id }}" {{ 'selected' if selected_item and selected_item.id == i.id }}>{{ i.item_name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label>Forecast Horizon (days)</label>
+      <input type="number" name="horizon" value="14" min="3" max="60">
+    </div>
+    <div class="field">
+      <button type="submit" class="btn btn-accent btn-block">Run Hybrid Forecast</button>
+    </div>
+  </form>
+  <p class="text-muted" style="font-size:12.5px; margin-top:12px; margin-bottom:0;">
+    This fits an ARIMA model for the trend/seasonal signal, trains an LSTM on the residuals to catch
+    irregular spikes, and blends both. Needs at least ~30 days of sales history for the selected item
+    (import via <a href="{{ url_for('inventory.import_sales') }}" style="color:var(--teal-700); font-weight:600;">Sales CSV Import</a> if needed).
+  </p>
+</div>
+
+{% if selected_item and forecast_rows %}
+<div class="section-title">
+  <div><span class="eyebrow">Result</span><h2>{{ selected_item.item_name }} — next {{ forecast_rows|length }} days</h2></div>
+</div>
+
+<div class="grid grid-3">
+  <div class="card stat-card">
+    <div class="stat-label">Avg. Daily Demand</div>
+    <div class="stat-value">{{ recommendation.avg_daily_demand }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Model Error (RMSE)</div>
+    <div class="stat-value">{{ metrics.rmse|round(2) if metrics.rmse is not none else '—' }}</div>
+    <div class="stat-foot">MAE: {{ metrics.mae|round(2) if metrics.mae is not none else '—' }}</div>
+  </div>
+  <div class="card stat-card {{ 'danger' if recommendation.should_reorder_now else '' }}">
+    <div class="stat-label">Days of Stock Left</div>
+    <div class="stat-value">{{ recommendation.days_of_stock_left if recommendation.days_of_stock_left is not none else '∞' }}</div>
+  </div>
+</div>
+
+<div class="panel-card" style="margin-top:18px;">
+  <canvas id="forecastChart" height="80"></canvas>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Recommendation Engine</span><h2>Restocking plan (EOQ)</h2></div>
+</div>
+<div class="panel-card">
+  <div class="grid grid-3" style="margin-bottom:16px;">
+    <div><div class="stat-label">Economic Order Qty</div><div class="stat-value" style="font-size:22px;">{{ recommendation.eoq }} {{ selected_item.unit }}s</div></div>
+    <div><div class="stat-label">Reorder Point</div><div class="stat-value" style="font-size:22px;">{{ recommendation.reorder_point }} {{ selected_item.unit }}s</div></div>
+    <div><div class="stat-label">Supplier Lead Time</div><div class="stat-value" style="font-size:22px;">{{ recommendation.lead_time_days }} days</div></div>
+  </div>
+  <div class="flash flash-{{ 'error' if recommendation.should_reorder_now else 'success' }}" style="margin:0;">
+    {{ recommendation.message }}
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script>
+function updateAction() {
+  const id = document.getElementById('itemSelect').value;
+  const form = document.getElementById('forecastForm');
+  if (id) { form.action = `/inventory/forecast/${id}/run`; }
+}
+updateAction();
+
+{% if selected_item and forecast_rows %}
+const labels = {{ forecast_rows|map(attribute='date')|map('string')|list|tojson }};
+const values = {{ forecast_rows|map(attribute='demand')|list|tojson }};
+new Chart(document.getElementById('forecastChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: 'Predicted Demand',
+      data: values,
+      borderColor: '#1F8A7C',
+      backgroundColor: 'rgba(43,182,163,0.14)',
+      fill: true, tension: 0.35, pointRadius: 3, borderWidth: 2,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { display: false } },
+    scales: { y: { beginAtZero: true, grid: { color: '#EEF3F1' } }, x: { grid: { display: false } } }
+  }
+});
+{% endif %}
+</script>
+{% endblock %}

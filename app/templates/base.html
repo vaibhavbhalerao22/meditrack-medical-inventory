@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}MediTrack{% endblock %} · {{ shop_name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 rx=%2222%22 fill=%22%230F3D3E%22/><text x=%2250%22 y=%2266%22 font-size=%2255%22 fill=%22%232BB6A3%22 text-anchor=%22middle%22 font-family=%22Georgia%22>M</text></svg>">
+<script>
+  // Set theme before the page paints, so there's no flash of the wrong theme.
+  (function () {
+    var saved = localStorage.getItem('meditrack-theme');
+    if (saved === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  })();
+</script>
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">M</div>
+      <div class="brand-name">MediTrack</div>
+    </div>
+    {% if current_user.is_authenticated %}
+    <div class="role-pill">{{ current_user.role_label }}</div>
+
+    <nav>
+      {% if current_user.role == 'admin' %}
+      <div class="nav-group">
+        <a class="nav-item {{ 'active' if request.endpoint == 'admin.dashboard' }}" href="{{ url_for('admin.dashboard') }}"><span class="ic">&#9673;</span> Dashboard</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'admin.users' }}" href="{{ url_for('admin.users') }}"><span class="ic">&#128101;</span> Users</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'admin.staff_performance' }}" href="{{ url_for('admin.staff_performance') }}"><span class="ic">&#128202;</span> Staff Performance</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'ai.assistant_page' }}" href="{{ url_for('ai.assistant_page') }}"><span class="ic">&#129302;</span> AI Assistant</a>
+      </div>
+      {% endif %}
+
+      {% if current_user.role in ['admin', 'inventory_manager'] %}
+      <div class="nav-label">Inventory</div>
+      <div class="nav-group">
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.list_items' }}" href="{{ url_for('inventory.list_items') }}"><span class="ic">&#128137;</span> Stock</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.expiring_batches' }}" href="{{ url_for('inventory.expiring_batches') }}"><span class="ic">&#8987;</span> Expiring Batches</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.wastage_report' }}" href="{{ url_for('inventory.wastage_report') }}"><span class="ic">&#128465;</span> Wastage Report</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.suppliers' }}" href="{{ url_for('inventory.suppliers') }}"><span class="ic">&#128666;</span> Suppliers</a>
+      </div>
+      <div class="nav-label">Forecasting</div>
+      <div class="nav-group">
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.forecast_home' }}" href="{{ url_for('inventory.forecast_home') }}"><span class="ic">&#128200;</span> Demand Forecast</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.forecast_accuracy' }}" href="{{ url_for('inventory.forecast_accuracy') }}"><span class="ic">&#127919;</span> Forecast Accuracy</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.reorder_suggestions' }}" href="{{ url_for('inventory.reorder_suggestions') }}"><span class="ic">&#128276;</span> Reorder Suggestions</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.purchase_orders' }}" href="{{ url_for('inventory.purchase_orders') }}"><span class="ic">&#128230;</span> Purchase Orders</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'inventory.import_sales' }}" href="{{ url_for('inventory.import_sales') }}"><span class="ic">&#128193;</span> Import Sales CSV</a>
+      </div>
+      {% endif %}
+
+      {% if current_user.role in ['admin', 'cashier'] %}
+      <div class="nav-label">Billing</div>
+      <div class="nav-group">
+        <a class="nav-item {{ 'active' if request.endpoint == 'cashier.billing' }}" href="{{ url_for('cashier.billing') }}"><span class="ic">&#128181;</span> New Bill</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'cashier.bill_history' }}" href="{{ url_for('cashier.bill_history') }}"><span class="ic">&#128203;</span> Bill History</a>
+        <a class="nav-item {{ 'active' if request.endpoint == 'cashier.returns_history' }}" href="{{ url_for('cashier.returns_history') }}"><span class="ic">&#8617;</span> Returns</a>
+        <a class="nav-item {{ 'active' if request.endpoint and request.endpoint.startswith('customers.') }}" href="{{ url_for('customers.list_customers') }}"><span class="ic">&#128100;</span> Customers</a>
+      </div>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-foot">
+      <a class="nav-item" href="{{ url_for('auth.logout') }}"><span class="ic">&#8618;</span> Log out</a>
+    </div>
+    {% endif %}
+  </aside>
+
+  <div class="main-col">
+    {% if current_user.is_authenticated %}
+    <header class="topbar">
+      <div>
+        <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+        <div class="crumbs">{{ shop_name }}</div>
+      </div>
+      <div style="display:flex; align-items:center; gap:14px;">
+        {% if current_user.role in ['admin', 'inventory_manager'] %}
+        <div class="notif-bell">
+          <button type="button" class="theme-toggle" id="notifToggle" title="Alerts" aria-label="Alerts" style="position:relative;">
+            <span>&#128276;</span>
+            {% if nav_alerts.low_stock_count + nav_alerts.expiring_count > 0 %}
+            <span class="notif-badge">{{ nav_alerts.low_stock_count + nav_alerts.expiring_count }}</span>
+            {% endif %}
+          </button>
+          <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-dropdown-title">Alerts</div>
+            {% if nav_alerts.low_stock %}
+            <div class="notif-section-label">Low Stock</div>
+            {% for i in nav_alerts.low_stock %}
+            <a class="notif-item" href="{{ url_for('inventory.list_items') }}">{{ i.item_name }} — {{ i.current_stock }} {{ i.unit }}(s) left</a>
+            {% endfor %}
+            {% if nav_alerts.low_stock_count > nav_alerts.low_stock|length %}
+            <a class="notif-item notif-more" href="{{ url_for('inventory.list_items') }}">+{{ nav_alerts.low_stock_count - nav_alerts.low_stock|length }} more &rarr;</a>
+            {% endif %}
+            {% endif %}
+            {% if nav_alerts.expiring %}
+            <div class="notif-section-label">Expiring Soon</div>
+            {% for b in nav_alerts.expiring %}
+            <a class="notif-item" href="{{ url_for('inventory.expiring_batches') }}">{{ b.item.item_name }} — {{ b.days_to_expiry }}d left</a>
+            {% endfor %}
+            {% if nav_alerts.expiring_count > nav_alerts.expiring|length %}
+            <a class="notif-item notif-more" href="{{ url_for('inventory.expiring_batches') }}">+{{ nav_alerts.expiring_count - nav_alerts.expiring|length }} more &rarr;</a>
+            {% endif %}
+            {% endif %}
+            {% if nav_alerts.low_stock_count == 0 and nav_alerts.expiring_count == 0 %}
+            <div class="notif-empty">All clear — nothing needs attention.</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+        <button type="button" class="theme-toggle" id="themeToggle" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <span id="themeIcon">&#9789;</span>
+        </button>
+        <div class="user-chip">
+          <div class="avatar">{{ current_user.full_name[:2]|upper }}</div>
+          <div>
+            <div style="font-size:13px; font-weight:600;">{{ current_user.full_name }}</div>
+            <div style="font-size:11px; color: var(--slate-400);">{{ current_user.role_label }}</div>
+          </div>
+        </div>
+      </div>
+    </header>
+    {% include '_pulse_strip.html' %}
+    <script>
+      (function () {
+        var bellToggle = document.getElementById('notifToggle');
+        var dropdown = document.getElementById('notifDropdown');
+        if (bellToggle && dropdown) {
+          bellToggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            dropdown.classList.toggle('open');
+          });
+          document.addEventListener('click', function (e) {
+            if (!dropdown.contains(e.target) && e.target !== bellToggle) {
+              dropdown.classList.remove('open');
+            }
+          });
+        }
+      })();
+      (function () {
+        var toggle = document.getElementById('themeToggle');
+        var icon = document.getElementById('themeIcon');
+        function updateIcon() {
+          icon.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? '&#9788;' : '&#9789;';
+        }
+        updateIcon();
+        toggle.addEventListener('click', function () {
+          var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+          if (isDark) {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('meditrack-theme', 'light');
+          } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('meditrack-theme', 'dark');
+          }
+          updateIcon();
+        });
+      })();
+    </script>
+    {% endif %}
+
+    <main class="content">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-stack">
+          {% for category, message in messages %}
+          <div class="flash flash-{{ category if category != 'message' else 'info' }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
+
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

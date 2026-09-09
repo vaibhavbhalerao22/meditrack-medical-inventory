@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Suppliers{% endblock %}
+{% block page_title %}Suppliers{% endblock %}
+
+{% block content %}
+<div class="section-title">
+  <div><span class="eyebrow">Vendors</span><h2>Add a supplier</h2></div>
+</div>
+<div class="panel-card">
+  <form method="POST">
+    <div class="form-grid">
+      <div class="field"><label>Supplier / Company Name</label><input type="text" name="name" required></div>
+      <div class="field"><label>Contact Person</label><input type="text" name="contact_person"></div>
+      <div class="field"><label>Phone</label><input type="text" name="phone"></div>
+      <div class="field"><label>Email</label><input type="email" name="email"></div>
+      <div class="field"><label>Address</label><input type="text" name="address"></div>
+      <div class="field"><label>Avg. Lead Time (days)</label><input type="number" name="lead_time_days" value="7" min="1"></div>
+    </div>
+    <div class="form-actions"><button class="btn btn-primary">Add Supplier</button></div>
+  </form>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Directory</span><h2>All suppliers ({{ suppliers|length }})</h2></div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if suppliers %}
+  <table class="data-table">
+    <thead><tr><th>Name</th><th>Contact</th><th>Phone</th><th>Lead Time</th><th>Items Supplied</th></tr></thead>
+    <tbody>
+      {% for s in suppliers %}
+      <tr>
+        <td><strong>{{ s.name }}</strong></td>
+        <td class="text-muted">{{ s.contact_person or '—' }}</td>
+        <td class="text-muted">{{ s.phone or '—' }}</td>
+        <td>{{ s.lead_time_days }} days</td>
+        <td>{{ s.items.count() }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No suppliers added yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

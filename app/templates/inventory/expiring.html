@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Expiring Batches{% endblock %}
+{% block page_title %}Expiring Batches{% endblock %}
+
+{% block content %}
+<div class="section-title">
+  <div><span class="eyebrow">Alerts</span><h2>Batches expiring within 30 days</h2></div>
+  <a href="{{ url_for('inventory.wastage_report') }}" class="btn btn-outline">View Wastage Report</a>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if batches %}
+  <table class="data-table">
+    <thead><tr><th>Medicine</th><th>Batch No.</th><th>Quantity</th><th>Expiry Date</th><th>Days Left</th><th></th></tr></thead>
+    <tbody>
+      {% for b in batches %}
+      <tr>
+        <td><strong>{{ b.item.item_name }}</strong></td>
+        <td>{{ b.batch_no }}</td>
+        <td>{{ b.quantity }}</td>
+        <td>{{ b.expiry_date.strftime('%d %b %Y') }}</td>
+        <td>
+          {% if b.days_to_expiry < 0 %}<span class="badge badge-danger">Expired {{ -b.days_to_expiry }}d ago</span>
+          {% elif b.days_to_expiry <= 7 %}<span class="badge badge-danger">{{ b.days_to_expiry }} days</span>
+          {% else %}<span class="badge badge-warn">{{ b.days_to_expiry }} days</span>{% endif %}
+        </td>
+        <td>
+          <form method="POST" action="{{ url_for('inventory.writeoff_batch', batch_id=b.id) }}"
+                onsubmit="return confirm('Write off {{ b.quantity }} units of {{ b.item.item_name }} (batch {{ b.batch_no }})? This removes it from stock and logs the loss.');"
+                style="display:flex; gap:6px; align-items:center;">
+            <input type="hidden" name="quantity" value="{{ b.quantity }}">
+            <select name="reason" style="padding:5px 8px; border-radius:6px; border:1px solid var(--line); font-size:11.5px;">
+              <option value="Expired" {{ 'selected' if b.days_to_expiry < 0 }}>Expired</option>
+              <option value="Damaged">Damaged</option>
+              <option value="Other">Other</option>
+            </select>
+            <button class="btn btn-danger btn-sm">Write Off</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#9989;</div>Nothing expiring soon. All clear.</div>
+  {% endif %}
+</div>
+{% endblock %}
+

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}Stock{% endblock %}
+{% block page_title %}Inventory{% endblock %}
+
+{% block content %}
+<div class="grid grid-3">
+  <div class="card stat-card">
+    <div class="stat-label">Total Items</div>
+    <div class="stat-value">{{ items|length }}</div>
+  </div>
+  <div class="card stat-card {{ 'danger' if low_stock_count else '' }}">
+    <div class="stat-label">Low Stock</div>
+    <div class="stat-value">{{ low_stock_count }}</div>
+  </div>
+  <div class="card stat-card {{ 'warn' if expiring_count else '' }}">
+    <div class="stat-label">Batches Expiring Soon</div>
+    <div class="stat-value">{{ expiring_count }}</div>
+  </div>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Catalog</span><h2>All medicines</h2></div>
+  <div style="display:flex; gap:10px;">
+    <a href="{{ url_for('inventory.export_inventory_xlsx') }}" class="btn btn-outline">Export to Excel</a>
+    <a href="{{ url_for('inventory.add_item') }}" class="btn btn-accent">+ Add Medicine</a>
+  </div>
+</div>
+
+<form method="GET" class="search-box" style="max-width:360px;">
+  <span class="ic">&#128269;</span>
+  <input type="text" name="q" value="{{ q }}" placeholder="Search medicines...">
+</form>
+
+<div class="panel-card" style="padding:0; margin-top:14px;">
+  {% if items %}
+  <table class="data-table">
+    <thead>
+      <tr><th>Medicine</th><th>Category</th><th>Stock</th><th>Reorder Level</th><th>Price</th><th>Nearest Expiry</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for i in items %}
+      <tr>
+        <td><strong>{{ i.item_name }}</strong></td>
+        <td class="text-muted">{{ i.category }}</td>
+        <td>{{ i.current_stock }} {{ i.unit }}</td>
+        <td class="text-muted">{{ i.reorder_level }}</td>
+        <td>{{ i.unit_price|currency }}</td>
+        <td class="text-muted">
+          {% set ne = i.nearest_expiry %}
+          {{ ne.strftime('%d %b %Y') if ne else '—' }}
+        </td>
+        <td>
+          {% if i.is_low_stock %}<span class="badge badge-danger">Low Stock</span>
+          {% else %}<span class="badge badge-ok">In Stock</span>{% endif %}
+        </td>
+        <td><a href="{{ url_for('inventory.edit_item', item_id=i.id) }}" class="btn btn-outline btn-sm">Manage</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128137;</div>No medicines yet — add your first item to get started.</div>
+  {% endif %}
+</div>
+{% endblock %}

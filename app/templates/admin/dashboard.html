@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Overview{% endblock %}
+
+{% block content %}
+<div class="grid grid-4">
+  <div class="card stat-card">
+    <div class="stat-label">Today's Sales</div>
+    <div class="stat-value">{{ today_sales|currency }}</div>
+    <div class="stat-foot">{{ today_bill_count }} bill(s) generated today{% if today_refunds %} &middot; <span style="color:#A5302F;">{{ today_refunds|currency }} refunded</span>{% endif %}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">This Month</div>
+    <div class="stat-value">{{ month_sales|currency }}</div>
+    <div class="stat-foot">Revenue, month to date{% if month_refunds %} &middot; <span style="color:#A5302F;">{{ month_refunds|currency }} refunded</span>{% endif %}</div>
+  </div>
+  <div class="card stat-card {{ 'danger' if low_stock_items|length else '' }}">
+    <div class="stat-label">Low Stock Items</div>
+    <div class="stat-value">{{ low_stock_items|length }}</div>
+    <div class="stat-foot"><a href="{{ url_for('inventory.list_items') }}" style="color:var(--teal-700); font-weight:600;">Review stock &rarr;</a></div>
+  </div>
+  <div class="card stat-card {{ 'warn' if expiring_batches else '' }}">
+    <div class="stat-label">Expiring &le; 30 Days</div>
+    <div class="stat-value">{{ expiring_batches }}</div>
+    <div class="stat-foot"><a href="{{ url_for('inventory.expiring_batches') }}" style="color:var(--teal-700); font-weight:600;">View batches &rarr;</a></div>
+  </div>
+</div>
+
+<div class="section-title">
+  <div>
+    <span class="eyebrow">Trend</span>
+    <h2>Daily Sales — Last 30 Days</h2>
+  </div>
+</div>
+<div class="panel-card">
+  <canvas id="dailyChart" height="90"></canvas>
+</div>
+
+<div class="section-title">
+  <div>
+    <span class="eyebrow">Trend</span>
+    <h2>Monthly Sales — Last 12 Months</h2>
+  </div>
+</div>
+<div class="panel-card">
+  <canvas id="monthlyChart" height="90"></canvas>
+</div>
+
+<div class="section-title">
+  <div>
+    <span class="eyebrow">Performance</span>
+    <h2>Top Selling Items (all time)</h2>
+  </div>
+</div>
+<div class="panel-card" style="padding:0;">
+  {% if top_items %}
+  <table class="data-table">
+    <thead><tr><th>Item</th><th>Units Sold</th><th>Revenue</th></tr></thead>
+    <tbody>
+      {% for name, qty, revenue in top_items %}
+      <tr><td>{{ name }}</td><td>{{ qty }}</td><td>{{ revenue|currency }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128202;</div>No sales recorded yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script>
+const tealLine = '#1F8A7C', mintFill = 'rgba(43,182,163,0.14)', amber = '#E8912D';
+
+if (typeof Chart !== 'undefined') {
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = '#52666A';
+}
+
+function showChartError(canvasId, message) {
+  const canvas = document.getElementById(canvasId);
+  const panel = canvas.closest('.panel-card');
+  panel.innerHTML = '<div class="empty-state" style="color:#B23B3B;">&#9888; ' + message + '</div>';
+}
+
+async function loadDaily() {
+  if (typeof Chart === 'undefined') {
+    showChartError('dailyChart', 'Chart library failed to load — check your network/browser extensions.');
+    return;
+  }
+  let res, data;
+  try {
+    res = await fetch("{{ url_for('admin.sales_daily') }}");
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (err) {
+    showChartError('dailyChart', 'Could not load daily sales data (' + err.message + ').');
+    return;
+  }
+  new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: 'Revenue',
+        data: data.values,
+        borderColor: tealLine,
+        backgroundColor: mintFill,
+        fill: true,
+        tension: 0.35,
+        pointRadius: 2,
+        pointHoverRadius: 5,
+        borderWidth: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, grid: { color: '#EEF3F1' } }, x: { grid: { display: false } } }
+    }
+  });
+}
+
+async function loadMonthly() {
+  if (typeof Chart === 'undefined') {
+    showChartError('monthlyChart', 'Chart library failed to load — check your network/browser extensions.');
+    return;
+  }
+  let res, data;
+  try {
+    res = await fetch("{{ url_for('admin.sales_monthly') }}");
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    data = await res.json();
+  } catch (err) {
+    showChartError('monthlyChart', 'Could not load monthly sales data (' + err.message + ').');
+    return;
+  }
+  new Chart(document.getElementById('monthlyChart'), {
+    type: 'bar',
+    data: {
+      labels: data.labels,
+      datasets: [{
+        label: 'Revenue',
+        data: data.values,
+        backgroundColor: amber,
+        borderRadius: 6,
+        maxBarThickness: 36,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, grid: { color: '#EEF3F1' } }, x: { grid: { display: false } } }
+    }
+  });
+}
+
+loadDaily();
+loadMonthly();
+</script>
+{% endblock %}

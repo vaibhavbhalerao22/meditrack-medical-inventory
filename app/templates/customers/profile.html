@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}{{ customer.name }}{% endblock %}
+{% block page_title %}{{ customer.name }}{% endblock %}
+
+{% block content %}
+<div class="section-title" style="margin-top:0;">
+  <div><span class="eyebrow">Customer</span><h2>{{ customer.name }}</h2></div>
+  <a href="{{ url_for('customers.list_customers') }}" class="btn btn-outline">&larr; All Customers</a>
+</div>
+
+<div class="grid grid-3" style="margin-bottom:22px;">
+  <div class="card stat-card">
+    <div class="stat-label">Phone</div>
+    <div class="stat-value" style="font-size:19px;">{{ customer.phone }}</div>
+    <div class="stat-foot">{{ customer.address or 'No address on file' }}</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Total Spent</div>
+    <div class="stat-value">{{ total_spent|currency }}</div>
+    <div class="stat-foot">Across {{ bills|length }} bill(s)</div>
+  </div>
+  <div class="card stat-card">
+    <div class="stat-label">Prescriptions on File</div>
+    <div class="stat-value">{{ prescriptions|length }}</div>
+    <div class="stat-foot">{{ customer.created_on.strftime('Customer since %d %b %Y') }}</div>
+  </div>
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">History</span><h2>Purchase history</h2></div>
+</div>
+<div class="panel-card" style="padding:0; margin-bottom:22px;">
+  {% if bills %}
+  <table class="data-table">
+    <thead><tr><th>Invoice No.</th><th>Date</th><th>Items</th><th>Total</th></tr></thead>
+    <tbody>
+      {% for b in bills %}
+      <tr>
+        <td><a href="{{ url_for('cashier.view_bill', bill_id=b.id) }}" style="color:var(--teal-700); font-weight:600;">{{ b.invoice_no }}</a></td>
+        <td class="text-muted">{{ b.created_on.strftime('%d %b %Y, %I:%M %p') }}</td>
+        <td class="text-muted">{{ b.line_items.count() }} item(s)</td>
+        <td>{{ b.total|currency }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128203;</div>No purchases on file for this phone number yet.</div>
+  {% endif %}
+</div>
+
+<div class="section-title">
+  <div><span class="eyebrow">Records</span><h2>Prescriptions</h2></div>
+</div>
+<div class="panel-card" style="margin-bottom:16px;">
+  <form method="POST" action="{{ url_for('customers.upload_prescription', customer_id=customer.id) }}"
+        enctype="multipart/form-data" style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label style="font-size:11.5px; color:var(--slate-600); display:block; margin-bottom:4px;">Upload prescription (image or PDF)</label>
+      <input type="file" name="file" accept=".png,.jpg,.jpeg,.webp,.pdf" required>
+    </div>
+    <div style="flex:1; min-width:180px;">
+      <label style="font-size:11.5px; color:var(--slate-600); display:block; margin-bottom:4px;">Notes (optional)</label>
+      <input type="text" name="notes" style="width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--line);">
+    </div>
+    <button class="btn btn-accent">Upload</button>
+  </form>
+</div>
+
+<div class="panel-card" style="padding:0;">
+  {% if prescriptions %}
+  <table class="data-table">
+    <thead><tr><th>File</th><th>Notes</th><th>Uploaded</th><th>By</th><th></th></tr></thead>
+    <tbody>
+      {% for p in prescriptions %}
+      <tr>
+        <td><a href="{{ url_for('customers.prescription_file', customer_id=customer.id, prescription_id=p.id) }}" target="_blank" style="color:var(--teal-700); font-weight:600;">{{ p.original_filename or 'View file' }}</a></td>
+        <td class="text-muted">{{ p.notes or '—' }}</td>
+        <td class="text-muted">{{ p.uploaded_on.strftime('%d %b %Y') }}</td>
+        <td class="text-muted">{{ p.uploader.full_name }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('customers.delete_prescription', customer_id=customer.id, prescription_id=p.id) }}"
+                onsubmit="return confirm('Delete this prescription file?');">
+            <button class="btn btn-outline btn-sm">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state"><div class="ic">&#128196;</div>No prescriptions uploaded yet.</div>
+  {% endif %}
+</div>
+{% endblock %}
