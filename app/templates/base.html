@@ -69,13 +69,19 @@
     </div>
     {% endif %}
   </aside>
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
 
   <div class="main-col">
     {% if current_user.is_authenticated %}
     <header class="topbar">
-      <div>
-        <h1>{% block page_title %}Dashboard{% endblock %}</h1>
-        <div class="crumbs">{{ shop_name }}</div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button type="button" class="hamburger-btn" id="hamburgerToggle" aria-label="Open menu" title="Menu">
+          <span></span><span></span><span></span>
+        </button>
+        <div>
+          <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+          <div class="crumbs">{{ shop_name }}</div>
+        </div>
       </div>
       <div style="display:flex; align-items:center; gap:14px;">
         {% if current_user.role in ['admin', 'inventory_manager'] %}
@@ -138,6 +144,31 @@
             if (!dropdown.contains(e.target) && e.target !== bellToggle) {
               dropdown.classList.remove('open');
             }
+          });
+        }
+      })();
+      (function () {
+        var hamburger = document.getElementById('hamburgerToggle');
+        var sidebar = document.querySelector('.sidebar');
+        var backdrop = document.getElementById('sidebarBackdrop');
+        if (hamburger && sidebar && backdrop) {
+          function closeSidebar() {
+            sidebar.classList.remove('open');
+            backdrop.classList.remove('open');
+          }
+          hamburger.addEventListener('click', function (e) {
+            e.stopPropagation();
+            sidebar.classList.toggle('open');
+            backdrop.classList.toggle('open');
+          });
+          backdrop.addEventListener('click', closeSidebar);
+          // Close the menu automatically when a nav link is tapped
+          sidebar.querySelectorAll('a.nav-item').forEach(function (link) {
+            link.addEventListener('click', closeSidebar);
+          });
+          // If the window is resized back to desktop width, reset mobile state
+          window.addEventListener('resize', function () {
+            if (window.innerWidth > 900) closeSidebar();
           });
         }
       })();
